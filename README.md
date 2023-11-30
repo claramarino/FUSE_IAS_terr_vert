@@ -60,11 +60,11 @@ Lizards (4,901 lines x 6 columns):
 
 ## How to use the scripts
 
-### Calculate FUSE-IAS score
+### 1. Calculate FUSE-IAS score
 
 Script 01_Proba_extinction_IAS.R computes the probability of extinction of all species associated with IAS threat. Script 02_Functional_spaces_FUn_FSp.R builds the functional space based on species traits for each taxonomic group and calculates the functional metrics related to specialization and uniqueness. Script 03_FUSE_IAS_scores_and_lists.R computes the final FUSE-IAS score for each species and derives the priority lists.
 
-### Evaluate FUSE-IAS species in priority lists
+### 2. Evaluate FUSE-IAS species in priority lists
 
 Script 04_Details_Core_list_species.R explores the characteristics of species listed in the Core list. Script XXXXX maps the species richness of species in each priority list.
 
