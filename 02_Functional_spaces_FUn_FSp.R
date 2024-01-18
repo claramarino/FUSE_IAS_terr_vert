@@ -6,7 +6,7 @@ rm(list=ls())
 library(tidyverse)
 library(tibble)
 library(ggpubr)
-
+library(ggExtra)
 
 #### Distance matrix and functional axes ####
 
@@ -219,101 +219,149 @@ saveRDS(std_fun_fsp, "Output/02_standardized_FUn_FSp_ABMR.rds")
 
 # Uniqueness value plotted on functional space
 
-# check if species with highest FUn are isolated
-#amph
-a <- left_join(
-  mat_coord$amph %>%
-    rownames_to_column("binomial"),
-  funi$amph)
-pa <- ggplot(a, aes(PC1, PC2, color = FUn_5NN))+
-  geom_point(size = 2, alpha = .7)+
-  scale_color_viridis_c()
-pa
+# Plot functional space with FSp/FUn color 
 
-# birds/mam/rept
-test <- left_join(
-  mat_coord$rept %>% # birds/mam/rept
-    rownames_to_column("binomial"),
-  funi$rept) # birds/mam/rept
-ggplot(test, aes(PC1, PC2, color = FUn_5NN))+
-  geom_point(size = 2, alpha = .7)+
-  scale_color_viridis_c()
-ggplot(test, aes(PC3, PC4, color = FUn_5NN))+
-  geom_point(size = 2, alpha = .7)+
-  scale_color_viridis_c()
+# function to apply to each class 
+# corresponding title
+title = list("amph" = "Amphibians", 
+             "bird" = "Birds",
+             "rept" = "Lizards",
+             "mam" = "Mammals")
+plot_FUn <- function(tax){
+  a <- left_join(
+    mat_coord[[tax]] %>%
+      rownames_to_column("binomial"),
+    std_fun_fsp[[tax]])
+  pa <- ggplot(a, aes(PC1, PC2, color = FUn_5NN))+
+    geom_point(size = 2, alpha = .7)+
+    scale_color_viridis_c(direction = -1)+
+    labs(title = title[[tax]])
+  return(pa)
+}
 
 
-# specialization plotted on functional space
+pamph <- plot_FUn("amph")
+pbird <- plot_FUn("bird")
+pliz <- plot_FUn("rept")
+pmam <- plot_FUn("mam")
 
-# check if species with highest FSp are far from centroid
-# amph
-test <- left_join(
-  mat_coord$amph %>%
-    rownames_to_column("binomial"),
-  fsp$amph)
-ggplot(test, aes(PC1, PC2, color = FSp_3D))+
-  geom_point(size = 2, alpha = .7)+
-  scale_color_viridis_c()
+ggarrange(pamph, pbird, pliz, pmam, nrow=2, ncol = 2,
+          common.legend = T, legend = "top")
 
-# birds
-test <- left_join(
-  mat_coord$bird %>%
-    rownames_to_column("binomial"),
-  fsp$bird)
-ggplot(test, aes(PC1, PC2, color = FSp_7D))+
-  geom_point(size = 2, alpha = .7)+
-  scale_color_viridis_c()
-ggplot(test, aes(PC3, PC4, color = FSp_7D))+
-  geom_point(size = 2, alpha = .7)+
-  scale_color_viridis_c()
+# PC3 PC4
+plot_FUn34 <- function(tax){
+  a <- left_join(
+    mat_coord[[tax]] %>%
+      rownames_to_column("binomial"),
+    std_fun_fsp[[tax]])
+  pa <- ggplot(a, aes(PC3, PC4, color = FUn_5NN))+
+    geom_point(size = 2, alpha = .7)+
+    scale_color_viridis_c(direction = -1)+
+    labs(title = title[[tax]])
+  return(pa)
+}
 
-# mam/rept
-test <- left_join(
-  mat_coord$mam %>% #rept
-    rownames_to_column("binomial"),
-  fsp$mam) #rept
-ggplot(test, aes(PC1, PC2, color = FSp_5D))+
-  geom_point(size = 2, alpha = .7)+
-  scale_color_viridis_c()
-ggplot(test, aes(PC3, PC4, color = FSp_5D))+
-  geom_point(size = 2, alpha = .7)+
-  scale_color_viridis_c()
+pbird34 <- plot_FUn34("bird")
+pliz34 <- plot_FUn34("rept")
+pmam34 <- plot_FUn34("mam")
+
+ggarrange(NULL, pbird34, pliz34, pmam34, nrow=2, ncol = 2,
+          common.legend = T, legend = "top")
+
+# save fig with all dim
+pdf("Fig/02_SupplFig2_FUn_funct_space.pdf",9,6)
+ggarrange(pamph, pbird, pliz, pmam,
+          NULL, pbird34, pliz34, pmam34, nrow=2, ncol = 4,
+          common.legend = T, legend = "top")
+dev.off()
+
+
+# FSp plotted on functional space
+
+# nb dim for each taxon
+nD = c("amph" = 3, "bird" = 7, "mam" = 5,"rept" = 5)
+
+ge_fun_fsp[[i]] %>% 
+  select(c(binomial, cate_p_ext, severity, p, 
+           contains(paste0(dim, "D")),
+           contains(paste0(NN, "NN"))))
+colnames(db_fus) <- c("binomial", "cate_p_ext","severity", "p","FSp","FUn")
+
+plot_FSp <- function(tax, dima, dimb){
+  dim = nD[tax]
+  coord <- mat_coord[[tax]] %>%
+    rownames_to_column("binomial") %>%
+    select(-PC10) %>%
+    select(c(binomial, 
+             contains(paste0("PC", dima)), 
+             contains(paste0("PC", dimb))))
+  colnames(coord) <- c("binomial","PCa", "PCb")
+
+  db_fsp <- std_fun_fsp[[tax]] %>% 
+    select(c(binomial, contains(paste0(dim, "D"))))
+  colnames(db_fsp) <- c("binomial", "FSp")
+
+  a <- left_join(coord, db_fsp)
+  
+  pa <- ggplot(a, aes(PCa, PCb, color = FSp))+
+    geom_point(size = 2, alpha = .7)+
+    scale_color_viridis_c(direction = -1)+
+    labs(title = title[[tax]])+
+    xlab(paste0("PC", dima)) + ylab(paste0("PC", dimb))
+  return(pa)
+}
+
+spamph <- plot_FSp("amph", 1,2)
+spbird <- plot_FSp("bird", 1,2)
+spliz <- plot_FSp("rept", 1,2)
+spmam <- plot_FSp("mam", 1,2)
+
+ggarrange(spamph, spbird, spliz, spmam, nrow=2, ncol = 2,
+          common.legend = T, legend = "top")
+
+spbird34 <- plot_FSp("bird", 3,4)
+spliz34 <- plot_FSp("rept", 3,4)
+spmam34 <- plot_FSp("mam", 3,4)
+
+ggarrange(NULL, spbird34, spliz34, spmam34, nrow=2, ncol = 2,
+          common.legend = T, legend = "top")
+
+# save fig with all dim
+pdf("Fig/02_SupplFig1_FSp_funct_space.pdf",9,6)
+ggarrange(spamph, spbird, spliz, spmam,
+          NULL, spbird34, spliz34, spmam34, nrow=2, ncol = 4,
+          common.legend = T, legend = "top")
+dev.off()
+
 
 ### Correlation between FUn & FSpe
 
 # check correlation between FUn, FSp for amph
-ac <- std_fun_fsp$amph
-hist(ac$FUn_5NN)
-hist(ac$FSp_3D)
-ggplot(ac)+ geom_point(aes(x = FUn_5NN, y = FSp_3D))
-ggplot(ac)+ geom_point(aes(x = FSp_4D, y = FSp_3D))
-ggplot(ac)+ geom_point(aes(x = FUn_4NN, y = FUn_6NN))
+plot_fspfun <- function (tax){
+  if(tax=="amph"){
+    p = ggplot(std_fun_fsp$amph)+ 
+      geom_point(aes(x = FUn_5NN, y = FSp_3D), color = "grey20", alpha=.3)}
+  if(tax=="bird"){
+    p = ggplot(std_fun_fsp$bird)+ 
+      geom_point(aes(x = FUn_5NN, y = FSp_7D), color = "grey20", alpha=.3)}
+  if(tax=="rept"){
+    p = ggplot(std_fun_fsp$rept)+ 
+      geom_point(aes(x = FUn_5NN, y = FSp_5D), color = "grey20", alpha=.3)}
+  if(tax=="mam"){
+    p = ggplot(std_fun_fsp$mam)+ 
+      geom_point(aes(x = FUn_5NN, y = FSp_5D), color = "grey20", alpha=.3)}
+  ph <- ggMarginal(p,type = "histogram", margins = "both", size = 4)
+  return(ph)
+}
 
-# check correlation between FUn, FSp for birds
-bc <- std_fun_fsp$bird
-hist(bc$FUn_5NN)
-hist(bc$FSp_7D)
-ggplot(bc)+ geom_point(aes(x = FUn_5NN, y = FSp_7D))
-ggplot(bc)+ geom_point(aes(x = FSp_6D, y = FSp_7D))
-ggplot(bc)+ geom_point(aes(x = FUn_5NN, y = FUn_4NN))
-
-# check correlation between FUn, FSp for mammals
-mc <- std_fun_fsp$mam
-hist(mc$FUn_5NN)
-hist(mc$FSp_5D)
-ggplot(mc)+ geom_point(aes(x = FUn_5NN, y = FSp_5D))
-ggplot(mc)+ geom_point(aes(x = FSp_4D, y = FSp_5D))
-ggplot(mc)+ geom_point(aes(x = FUn_5NN, y = FUn_4NN))
-
-# check correlation between FUn, FSp for reptiles
-rc <- std_fun_fsp$rept
-hist(rc$FUn_5NN)
-hist(rc$FSp_5D)
-ggplot(rc)+ geom_point(aes(x = FUn_5NN, y = FSp_5D))
-ggplot(rc)+ geom_point(aes(x = FSp_4D, y = FSp_5D))
-ggplot(rc)+ geom_point(aes(x = FUn_5NN, y = FUn_4NN))
+ca <- plot_fspfun("amph")
+cb <- plot_fspfun("bird")
+cr <- plot_fspfun("rept")
+cm <- plot_fspfun("mam")
 
 
-
-
+pdf("Fig/02_SupplFig3_cor_Fsp_Fun.pdf")
+ggarrange(ca, cb, cr, cm, nrow=2, ncol=2, 
+          labels = c("Amphibians", "Birds","Lizards","Mammals"), label.x=.3)
+dev.off()
 
