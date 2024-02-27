@@ -22,7 +22,7 @@ for (i in names(GE2_list)){
   ge_fun_fsp[[i]] <- inner_join(GE2_list[[i]], std_fun_fsp[[i]])
 }
 
-
+lapply(ge_fun_fsp, function(x){table(x$cate_p_ext)})
 
 # chose nb dim functional space & nb nearest neighbors 
 # for each taxonomic group (following script 01)
@@ -66,6 +66,10 @@ saveRDS(fusias, "Output/03_FUSE_IAS_scores_ABMR.rds")
 
 # get the total median per class
 tot_median <- lapply(fusias, function(x) median(x$FUSE_IAS))
+tot_median
+# with standard deviation
+lapply(fusias, function(x) sd(x$FUSE_IAS))
+lapply(fusias, function(x) mean(x$FUSE_IAS))
 
 # count for each sp the number of fusias score above the median
 fusias_over_med <- list()

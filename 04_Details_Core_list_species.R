@@ -9,18 +9,32 @@ threat <- openxlsx::read.xlsx("Data/Species_threat_IAS_terr_vert.xlsx")
 nb_threat <- threat %>% dplyr::distinct(binomial, nb_tot_threat) %>%
   filter(!is.na(nb_tot_threat))
 
-# load core list species
+# load lists
 core_list <- readRDS("Output/03_FUSIAS_core_list_ABMR.rds")
+border_list <- readRDS("Output/03_FUSIAS_borderline_list_ABMR.rds")
+watch_list <- readRDS("Output/03_FUSIAS_watch_list_ABMR.rds")
+
+all_lists <- core_list
+for (i in 1:4){
+  all_lists[[i]] <- bind_rows(
+    core_list[[i]] %>% mutate(list = "Core"), 
+    watch_list[[i]] %>% mutate(list = "Watch"),
+    border_list[[i]] %>% mutate(list = "Borderline"))
+}
 
 
-
-
-# do some species have only IAS threat?
+# count nb of threats per species in the core list
 nb_th_core <- lapply(core_list, function(x){
   left_join(x, nb_threat)
 })
-head(nb_th_core$amph)
 
+lapply(nb_th_core, function(x){mean(x$nb_tot_threat)})
+lapply(nb_th_core, function(x){sd(x$nb_tot_threat)})
+
+mean(bind_rows(nb_th_core)$nb_tot_threat)
+sd(bind_rows(nb_th_core)$nb_tot_threat)
+
+# do some species have only IAS threat?
 core_ias_only <- lapply(nb_th_core, function (x){
   x %>% filter(nb_tot_threat < 2)
 })
@@ -32,23 +46,28 @@ lapply(core_ias_only, nrow)
 # do those species have a high score?
 lapply(core_ias_only, function(x){
   print(mean(x$FUSE_IAS_med))
-  print(sd(x$FUSE_IAS_med))
+  # print(sd(x$FUSE_IAS_med))
 })
 
-# save species list 
-for (i in 1:length(core_ias_only)){
-  core_ias_only[[i]]$class <- names(core_ias_only)[i]
+# save species list with only IAS threat
+# for all lists (not only Core)
+nb_th_all <- lapply(all_lists, function(x){
+  left_join(x, nb_threat) %>% filter(nb_tot_threat < 2)
+})
+
+for (i in 1:length(nb_th_all)){
+  nb_th_all[[i]]$class <- names(nb_th_all)[i]
 }
-core_ias_only_tb <- bind_rows(core_ias_only) %>%
-  select(class, binomial, cate_p_ext, severity, p_med, FUSE_IAS_med, FUSE_IAS_sd) %>%
+nb_th_all_tb <- bind_rows(nb_th_all) %>%
+  select(class, binomial, cate_p_ext, severity, p_med, FUSE_IAS_med, FUSE_IAS_sd, list) %>%
   mutate(class = case_when(
     class == "amph" ~ "Amphibians",
     class == "bird" ~ "Birds",
     class == "mam" ~ "Mammals",
-    class == "rept" ~ "Lizards" ))
+    class == "rept" ~ "Lizards" )) %>%
+  mutate(severity = if_else(severity=="DD","NA", severity))
 
-
-#openxlsx::write.xlsx(cate_nb, file = 'FUSE_IAS_terr_vert/Data/Species_threat_IAS_terr_vert.xlsx')
+openxlsx::write.xlsx(nb_th_all_tb, file = 'Output/04_Species_threatened_by_IAS_only.xlsx')
 
 core_ias_only
 
