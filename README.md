@@ -2,7 +2,7 @@
 Scripts and data for reproducing the results obtained by Marino, Soares & Bellard in the paper "Conservation priorities for terrestrial vertebrates that are functionally unique, specialized, and endangered by biological invasions. "
 
 ## Description of the Data and file structure
-Data folder contains two files related to species threats and traits.
+Data folder contains two main files related to species threats and traits, and 4 minor files fo additional information on Top 50 priority birds and on associated IAS threatening native species.
 
 ### 1. IAS threat associated with terrestrial vertebrates
 
@@ -58,6 +58,14 @@ Lizards (4,901 lines x 6 columns):
 - For.niche (factor): preferred forraging stratum (Aqu: aquatic, Arb: arboreal, Fos: fossorial, Multi: multiple, Sax: saxicolous, Ter: terrestrial)
 - max_log10_BM_g (continuous): body mass in g (log-transformed)
 
+### 3. Minor data files
+
+Data file Associated_IAS.csv contains the IAS (column "ias") associated with each native species threatened by biological invasions (column "scientificName")
+Data files TOP50_birds_Action.csv, TOP50_birds_noIAS_spp.csv, TOP50_birds_noOtherThreats_spp.csv contain additional information on the Top 50 pririty birds in the FUSE-IAS Core List:
+- TOP50_birds_Action: conservation actions needed associated with birds in the "binomial" column, following the IUCN Conservation Actions Classification Scheme (Version 2.0)
+- TOP50_birds_noIAS_spp: number of IAS associated with birds, from each type of IAS
+- TOP50_birds_noOtherThreats_spp: number of other threats associated with birds, following the IUCN Threats Classification Scheme (Version 3.3)
+
 ## How to use the scripts
 
 ### 1. Calculate FUSE-IAS score
@@ -66,5 +74,5 @@ Script 01_Proba_extinction_IAS.R computes the probability of extinction of all s
 
 ### 2. Evaluate FUSE-IAS species in priority lists
 
-Script 04_Details_Core_list_species.R explores the characteristics of species listed in the Core list. Script XXXXX maps the species richness of species in each priority list.
+Script 04_Details_Core_list_species.R explores the characteristics of species listed in the Core list and Top 50 birds.
 
