@@ -74,5 +74,5 @@ Script 01_Proba_extinction_IAS.R computes the probability of extinction of all s
 
 ### 2. Evaluate FUSE-IAS species in priority lists
 
-Script 04_Details_Core_list_species.R explores the characteristics of species listed in the Core list and Top 50 birds.
+Script 04_Details_Core_list_species.R explores the characteristics of species listed in the Core list and Top 50 birds. Maps of species from the Core, Borderline and Watch lists for the 4 groups were obtained using native distribution range of amphibians and mammals from the IUCN, birds from Birdlife, and lizards from the GARD database (BirdLife International & Handbook of the Birds of the World, 2020; IUCN, 2022; Roll et al., 2017). We still provide the code used for deriving the maps, although we do not provide the associated raw data.
 
