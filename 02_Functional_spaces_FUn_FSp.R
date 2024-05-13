@@ -32,84 +32,144 @@ data_ft <- lapply(data, function(x){
 str(data_ft)
 
 
-# Compute distance matrix for each group 
+# distance and pcoa using the mFD package
 
-mat_dis <- lapply(data_ft, function(x){
-  ft_ok <- x %>% column_to_rownames("binomial")
-  mat <- cluster::daisy(ft_ok, metric = "gower")
-  return(mat)
+# define the type of traits
+traits_cat <- list(
+  amph = data.frame(
+    trait_name = colnames(data_ft$amph)[2:5],
+    trait_type = c("O","N", "N", "Q")),
+  bird = data.frame(
+    trait_name = colnames(data_ft$bird)[2:11],
+    trait_type = c("Q","Q","Q","N","N","Q","Q","Q","Q","O")),
+  mam = data.frame(
+    trait_name = colnames(data_ft$mam)[2:6],
+    trait_type = c("O","N", "N","N", "Q")),
+  rept = data.frame(
+    trait_name = colnames(data_ft$rept)[2:6],
+    trait_type = c("O","N", "N","N", "Q")))
+
+# Functional distance based on the traits
+names(data_ft)
+sp_dist <- traits_cat
+for(i in names(traits_cat)){
+  sp_dist[[i]] <- mFD::funct.dist(
+    sp_tr    = data_ft[[i]] %>% column_to_rownames("binomial"),
+    tr_cat        = traits_cat[[i]],
+    metric        = "gower",
+    scale_euclid  = "scale_center",
+    ordinal_var   = "classic",
+    weight_type   = "equal",
+    stop_if_NA    = T)
+  print(i)
+}
+
+saveRDS(sp_dist, "Output/02_sp_dist_mFD_ABMR.rds")
+for(i in names(sp_dist)){
+  saveRDS(sp_dist[[i]], paste0("Output/02_sp_dist_mFD_", i, ".rds"))
+  print(i)
+}
+
+
+# the mfd::fspaces_quality function does not function for birds
+# so 1. run classic pcoa on the sp_dist matrix, for all groups to be consistent
+# and 2. calculate mean deviation as in the mfd::fspaces_quality function 
+
+pcoa_out <- traits_cat
+for(i in names(pcoa_out)){
+  sp_dist <- readRDS(paste0("Output/02_sp_dist_mFD_", i, ".rds"))
+  pcoa_out[[i]] <- ape::pcoa(sp_dist)
+  print(i)
+}
+saveRDS(pcoa_out, "Output/02_fsp_pcoa_out_ABMR.rds")
+
+# calculate mean deviation
+pcoa_out <- readRDS("Output/02_fsp_pcoa_out_ABMR.rds")
+
+nbdim = 10
+quality_fsp <- traits_cat
+
+for(i in names(quality_fsp)){
+  mat_coord <- as.data.frame(pcoa_out[[i]]$vectors[,1:nbdim])
+  row.names(mat_coord)<-data_ft[[i]]$binomial
+  colnames(mat_coord)<-paste("PC",1:nbdim,sep="")
+  
+  mad <- rmsd <- mad_scaled <- rmsd_scaled <- c()
+  
+  # initial distances
+  sp_dist <- readRDS(paste0("Output/02_sp_dist_mFD_", i, ".rds"))
+  print(i)
+  
+  for (n in 1:nbdim){
+    # Distances recalculated from the n first axes of the PCoA
+    new <- stats::dist(mat_coord[,1:n])
+    
+    new_mat <- as.matrix(new)
+    ini_mat <- as.matrix(sp_dist)
+    # absolute distances
+    diff <- mean(abs(ini_mat - new_mat))
+    diff2 <- sqrt(mean((ini_mat - new_mat)^2))
+    mad <- c(mad, diff)
+    rmsd <- c(rmsd, diff2)
+    # standardize distances
+    std_new_dist <- new_mat*max(ini_mat)/max(new_mat)
+    # scaled mean absolute deviation + mean square deviation
+    sdiff <- mean(abs(ini_mat - std_new_dist))
+    sdiff2 <- sqrt(mean((ini_mat - std_new_dist)^2))
+    mad_scaled <- c(mad_scaled, sdiff)
+    rmsd_scaled <- c(rmsd_scaled, sdiff2)
+    print(n)
+
+  }
+  
+  quality_fsp[[i]] <- data.frame(
+    axes = paste0("pcoa_", 1:nbdim),
+    mad = mad,
+    rmsd = rmsd,
+    mad_scaled = mad_scaled,
+    rmsd_scaled = rmsd_scaled)
+} 
+
+quality_fsp
+
+lapply(quality_fsp, function(x){
+  apply(x[,-1], 2, which.min)
 })
 
-saveRDS(mat_dis, "Output/02_ft_dist_matrix_ABMR.rds")
 
-mat_dis <- readRDS("Output/02_ft_dist_matrix_ABMR.rds")
+#### Variance explained in the selected functional spaces ####
+# with rmsd as metric
+# 3D for amphibians
+# 7D for birds
+# 5D for mammals
+# 5D for reptiles
 
-# Apply PCoA to distance matrix
-# /!\ long time ~1h20min
-Sys.time()
-mat_pcoa <- lapply(mat_dis, ape::pcoa)
-Sys.time()
-saveRDS(mat_pcoa, "Output/02_pcoa_ABMR.rds")
-object.size(mat_pcoa)
+var_abmr <- lapply(pcoa_out, function(x){
+  tot_pos <- sum(x$values$Eigenvalues[x$values$Eigenvalues>0])
+  var_b <- data.frame(
+    egv = x$values$Eigenvalues[1:10]/tot_pos,
+    egv_cum = cumsum(x$values$Eigenvalues[1:10]/tot_pos))
+  return(var_b)
+})
 
-mat_pcoa <- readRDS("Output/02_pcoa_ABMR.rds")
+var_abmr
 
-# keeping species coordinates on the 'nbdim' axes
-nbdim = 10
-mat_coord <- list()
-for(i in names(mat_pcoa)){
-  mat_coord[[i]] <- as.data.frame(mat_pcoa[[i]]$vectors[,1:nbdim])
+#### Functional Specialization & Uniqueness ####
+
+nbdim=10
+mat_dis <- mat_coord <- list()
+pcoa_out <- readRDS("Output/02_fsp_pcoa_out_ABMR.rds")
+for(i in names(data_ft)){
+  mat_dis[[i]] <- as.matrix(readRDS(paste0("Output/02_sp_dist_mFD_", i, ".rds")))
+  mat_coord[[i]] <- as.data.frame(pcoa_out[[i]]$vectors[,1:nbdim])
   row.names(mat_coord[[i]])<-data_ft[[i]]$binomial
   colnames(mat_coord[[i]])<-paste("PC",1:nbdim,sep="")
 }
 
-# get the eigenvectors for the explaining variance with the pcoa
-lapply(mat_pcoa, function(x){sum(x$values$Eigenvalues)})
-
-# take positive and negative egv using sum of absolute values
-egv <- lapply(mat_pcoa, function(x){
-  e1 <- x$values$Eigenvalues[1]/sum(abs(x$values$Eigenvalues))
-  e2 <- x$values$Eigenvalues[2]/sum(abs(x$values$Eigenvalues))
-  e3 <- x$values$Eigenvalues[3]/sum(abs(x$values$Eigenvalues))
-  e4 <- x$values$Eigenvalues[4]/sum(abs(x$values$Eigenvalues))
-  e5 <- x$values$Eigenvalues[5]/sum(abs(x$values$Eigenvalues))
-  e6 <- x$values$Eigenvalues[6]/sum(abs(x$values$Eigenvalues))
-  e7 <- x$values$Eigenvalues[7]/sum(abs(x$values$Eigenvalues))
-  e8 <- x$values$Eigenvalues[8]/sum(abs(x$values$Eigenvalues))
-  e9 <- x$values$Eigenvalues[9]/sum(abs(x$values$Eigenvalues))
-  e10 <- x$values$Eigenvalues[10]/sum(abs(x$values$Eigenvalues))
-  vect <- c(e1, e2, e3, e4, e5, e6, e7, e8, e9, e10)
-  return(vect)
-})
-
-egv
-
-
-# cumulative values of egv values for all groups
-# how many axes do we have to take to have >50% of variance explained?
-egv_cum <- bind_rows(egv) %>%
-  mutate(axis = paste0("PC", 1:10)) %>%
-  mutate(amph_cum = cumsum(amph),
-         bird_cum = cumsum(bird),
-         mam_cum = cumsum(mam), 
-         rept_cum = cumsum(rept))
-
-egv_cum
-
-# selecting the number of axes for explaining >50 % of variance 
-#   3 axes for amphibians
-#   7 axes for birds
-#   5 axes for mammals
-#   5 axes for reptiles
-
-
-
-#### Functional Specialization & Uniqueness ####
-
 # find k closest species
 
 k_closest_dist <- lapply(mat_dis, function(x){
-  name_sp <- attributes(x)$Labels
+  name_sp <- attributes(x)$dimnames[[1]]
   
   k_closest <- data.frame(matrix(ncol = 10, nrow = 0))
   colnames(k_closest) <- paste("closest_", 1:10, sep="")
@@ -147,8 +207,8 @@ funi <- lapply(k_closest_dist, function(x){
 })
 
 
-plot(funi$amph$FUn_5NN,funi$amph$FUn_3NN)
-hist(funi$amph$FUn_5NN)
+plot(funi$amph$FUn_5NN,funi$amph$FUn_4NN)
+hist(funi$bird$FUn_5NN)
 
 #### Specialization ####
 
@@ -187,10 +247,10 @@ for(i in names(fsp)){
   fun_fsp[[i]] <- left_join(funi[[i]], fsp[[i]])
 }
 
-saveRDS(fun_fsp, "Output/02_FUn_FSp_ABMR.rds")
+saveRDS(fun_fsp, "Output/02_FUn_FSp_ABMR2.rds")
 
 # standardize FUn & FSp 
-fun_fsp <- readRDS("Output/02_FUn_FSp_ABMR.rds")
+fun_fsp <- readRDS("Output/02_FUn_FSp_ABMR2.rds")
 
 std_fun_fsp <- lapply(fun_fsp, function(x){
   
@@ -210,8 +270,18 @@ std_fun_fsp <- lapply(fun_fsp, function(x){
 })
 hist(std_fun_fsp$amph$FSp_3D)
 hist(std_fun_fsp$rept$FUn_5NN)
+plot(std_fun_fsp$amph$FSp_3D, std_fun_fsp$amph$FSp_5D)
 
-saveRDS(std_fun_fsp, "Output/02_standardized_FUn_FSp_ABMR.rds")
+saveRDS(std_fun_fsp, "Output/02_standardized_FUn_FSp_ABMR2.rds")
+
+fun_fsp <- readRDS("Output/02_standardized_FUn_FSp_ABMR.rds")
+fun_fsp2 <- readRDS("Output/02_standardized_FUn_FSp_ABMR2.rds")
+
+plot(fun_fsp$bird$FSp_3D, fun_fsp2$bird$FSp_3D)
+#change between 6 and 7D for birds
+plot(fun_fsp2$bird$FSp_6D, fun_fsp2$bird$FSp_7D)
+#change between 5 and 4D for reptiles
+plot(fun_fsp2$rept$FSp_5D, fun_fsp2$rept$FSp_4D)
 
 
 
