@@ -1,5 +1,6 @@
 # Conservation priorities for terrestrial vertebrates threatened by biological invasions
 Scripts and data for reproducing the results obtained by Marino, Soares & Bellard in the paper "Conservation priorities for terrestrial vertebrates that are functionally unique, specialized, and endangered by biological invasions. "
+In the paper, invasive alien species (IAS) are refered to as invasive non-native species (INS). The FUSE IAS and FUSE INS scores are thus synonyms.
 
 ## Description of the Data and file structure
 Data folder contains two main files related to species threats and traits, and 4 minor files fo additional information on Top 50 priority birds and on associated IAS threatening native species.
